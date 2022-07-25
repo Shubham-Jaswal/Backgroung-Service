@@ -1,24 +1,21 @@
 package com.example.service;
 
 import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.PeriodicWorkRequest;
-import androidx.work.WorkManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.util.Calendar;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -29,44 +26,59 @@ public class MainActivity extends FlutterActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+checkPermission();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
 
-        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(),"backgroundservice").setMethodCallHandler(
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), "backgroundservice").setMethodCallHandler(
                 (call, result) -> {
-                    if(call.method.equals("startservice"))
-                    {
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+                                checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                                        == PackageManager.PERMISSION_GRANTED) {
+                            if (call.method.equals("startservice")) {
+                                Calendar c = Calendar.getInstance();
+                                AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                                Intent intent1 = new Intent(this, LocationService.class);
+                                PendingIntent pi = PendingIntent.getService(MainActivity.this, 0, intent1, 0);
+                                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), 60000, pi);
+                            }
+                        }
 
-                        WorkManager workmanger = WorkManager.getInstance(this);
-
-                        PeriodicWorkRequest periodicWorkRequest= new PeriodicWorkRequest.Builder(Workmanager.class
-                        ,PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS).build();
-                        workmanger.enqueueUniquePeriodicWork("aaaaaa",ExistingPeriodicWorkPolicy.REPLACE,
-                                periodicWorkRequest);
-                       /* OneTimeWorkRequest blurBuilder =
-                                new OneTimeWorkRequest.Builder(Workmanager.class).build();
-                        workmanger.enqueue(blurBuilder);*/
-
-
-                          /*  Intent intent=new Intent(this, LocationService.class);
-                            startService(intent);
-                            createFirstNotification();*/
-
-
+                        else {
+                            ActivityCompat.requestPermissions(this, new String[]{
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION,}, 1);
+                        }
                     }
+
                 }
         );
     }
-
-    public void createFirstNotificationChannel(View view){
-
+    public void checkPermission() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            }
+            else {
+                ActivityCompat.requestPermissions(this, new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,}, 1);
+            }
+        }
     }
 
-    public void createFirstNotification(){
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+
+
+        } else {
+            checkPermission();
+        }
     }
 }
+

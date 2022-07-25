@@ -1,17 +1,22 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
-class Home extends StatefulWidget {
-  const Home({Key? key}) : super(key: key);
+class Test extends StatefulWidget {
+  const Test({Key? key}) : super(key: key);
 
   @override
-  State<Home> createState() => _HomeState();
+  State<Test> createState() => _TestState();
 }
 
-class _HomeState extends State<Home> {
+class _TestState extends State<Test> {
 
-  MethodChannel platform=MethodChannel('backgroundservice');
+
+  MethodChannel methodChannel=const MethodChannel('test');
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,20 +28,17 @@ class _HomeState extends State<Home> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('Here'),
+            Text('Test dart from java'),
             ElevatedButton(onPressed: (){
-              startService();
+
+
+
             },child: Text('Press'),)
           ],
         ),
       ),
-
     );
   }
-  void startService() async {
-    dynamic value=await platform.invokeMethod('startservice');
-    print(value);
 
 
-  }
 }
