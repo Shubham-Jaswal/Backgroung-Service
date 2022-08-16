@@ -3,15 +3,16 @@ package com.example.service;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Notification;
-import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -24,13 +25,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.StrictMode;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
@@ -43,16 +43,16 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 import javax.net.ssl.HttpsURLConnection;
-
-import io.flutter.plugin.common.MethodChannel;
 
 public class LocationService extends Service {
     public LocationService() {
     }
 
     String wifiname = "";
+
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -65,7 +65,7 @@ public class LocationService extends Service {
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, Utils.FIRST_CHANNEL_ID);
             Notification notification = builder.setOngoing(true)
-                    //.setSmallIcon(R.drawable.ic_android_black_24dp)
+                    //     .setSmallIcon(R.drawable.ic_launcher_background)
                     .setContentTitle(Utils.FIRST_NOTIFICATION_TITLE)
                     .setContentText(Utils.FIRST_NOTIFICATION_DEC)
                     .setPriority(NotificationCompat.PRIORITY_LOW).build();
@@ -83,7 +83,7 @@ public class LocationService extends Service {
                     (this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(getApplicationContext(), "Please Enable Location Permission", Toast.LENGTH_LONG).show();
             }
-            lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, new LocationListener() {
+            lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, new LocationListener() {
                 @Override
                 public void onLocationChanged(@NonNull Location location) {
 
@@ -93,7 +93,6 @@ public class LocationService extends Service {
 
                     BatteryManager bm = (BatteryManager) getApplicationContext().getSystemService(BATTERY_SERVICE);
                     int batlevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-
 
 
                     ConnectivityManager cm =
@@ -106,6 +105,7 @@ public class LocationService extends Service {
                         WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
                         wifiname = wifiInfo.getSSID();
+                        System.out.println(wifiname);
                     }
 
                     boolean isConnected = activeNetwork != null &&
@@ -113,7 +113,21 @@ public class LocationService extends Service {
 
 
                     if (isConnected) {
+
                         try {
+                           /*db = ob.getWritableDatabase();
+                            db.execSQL("DELETE FROM LocationData");*/
+                            Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+
+                            List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                            String address = addresses.get(0).getAddressLine(0);
+                            String city = addresses.get(0).getLocality();
+                            String state = addresses.get(0).getAdminArea();
+                            String zip = addresses.get(0).getPostalCode();
+                            String country = addresses.get(0).getCountryName();
+                            System.out.println(address + city + state + zip + country);
+
+
                             HttpURLConnection urlc = (HttpURLConnection)
                                     (new URL("http://clients3.google.com/generate_204")
                                             .openConnection());
@@ -125,17 +139,63 @@ public class LocationService extends Service {
                                     urlc.getContentLength() == 0) {
                                 System.out.println("Connected to Internet");
                                 Toast.makeText(getApplicationContext(), "Connected to Internet" + String.valueOf(location.getLatitude()), Toast.LENGTH_LONG).show();
-                                URL url = new URL("https://onpress.000webhostapp.com/index.php?time=" + String.valueOf(location.getLatitude()) + Calendar.getInstance().getTime() + "&name=" + String.valueOf(wifiname));
+                                URL url = new URL("https://onpress.000webhostapp.com/index.php?address=" + String.valueOf(address + city + state + zip + country) + Calendar.getInstance().getTime() + "&battery=100&airplane=on");
                                 HttpsURLConnection httpsURLConnection = (HttpsURLConnection) url.openConnection();
                                 InputStream inputStream = httpsURLConnection.getInputStream();
+                                System.out.println(addresses.get(0).getAddressLine(0));
+
+
                                 Cursor cursor = db.rawQuery("SELECT * FROM LocationData", null);
-                                if (cursor != null) {
+                                cursor.moveToFirst();
+                                if (cursor.getCount() == 0) {
+                                    System.out.println("DataBase is Empty");
+                                    db.close();
+                                } else {
+                                    String lat = "";
+                                    String longi = "";
+                                    String battery = "";
+                                    String airplane = "";
+                                    String query = "";
+                                    for (int i = 0; i < cursor.getCount(); i++) {
+                                        String subquery = "";
+                                        lat = cursor.getString(0);
+                                        longi = cursor.getString(1);
+                                        battery = cursor.getString(2);
+                                        airplane = cursor.getString(3);
+                                        double lat1 = Double.parseDouble(lat);
+                                        double longi1 = Double.parseDouble(longi);
+                                        List<Address> addresses1 = geocoder.getFromLocation(lat1, longi1, 1);
+                                        String address1 = addresses1.get(0).getAddressLine(0) + addresses1.get(0).getLocality() + addresses1.get(0).getAdminArea() + addresses1.get(0).getPostalCode();
+                                        System.out.println("converted" + address1);
+
+
+                                        ArrayList<String> arr = new ArrayList();
+                                        arr.add(address1);
+                                        arr.add(battery);
+                                        arr.add(airplane);
+                                        for (int s = 0; s < arr.size(); s++) {
+                                            subquery = subquery + "arr" + String.valueOf(i) + "[]=" + arr.get(s);
+                                            subquery = subquery + "&";
+                                        }
+                                        query = query + subquery;
+                                        cursor.moveToNext();
+                                    }
+
+                                    query = query + "count=" + cursor.getCount();
+
+                                    URL url1 = new URL("https://onpress.000webhostapp.com/index2.php?" + query);
+                                    HttpsURLConnection httpsURLConnection1 = (HttpsURLConnection) url1.openConnection();
+                                    InputStream inputStream1 = httpsURLConnection1.getInputStream();
+
+                                    System.out.println(query);
                                     System.out.println("DataBase is not Empty");
+                                    db = ob.getWritableDatabase();
+                                    db.execSQL("DELETE FROM LocationData");
                                     db.close();
                                 }
 
                             }
-                        } catch (IOException e) {
+                        } catch (Exception e) {
                             Log.e("TAG", "Error checking internet connection", e);
                         }
                     } else {
@@ -145,12 +205,16 @@ public class LocationService extends Service {
                             ContentValues cv = new ContentValues();
                             cv.put("latitude", String.valueOf(location.getLatitude()));
                             cv.put("longitude", String.valueOf(location.getLongitude()));
-                            if(bm.isCharging()) {
-                                cv.put("battery", batlevel + "% AC PluggedIn" );
+                            if (bm.isCharging()) {
+                                cv.put("battery", batlevel + "% AC PluggedIn");
+                            } else {
+                                cv.put("battery", batlevel + "% AC PluggedOut");
                             }
-                            else
-                            {
-                                cv.put("battery", batlevel + "% AC PluggedOut" );
+                            if (isAirplaneModeOn(getApplicationContext())) {
+                                cv.put("airplane", "On");
+                            } else {
+                                cv.put("airplane", "Off");
+
                             }
                             db.insert("LocationData", "latitude", cv);
                             db.close();
@@ -160,32 +224,7 @@ public class LocationService extends Service {
                             cursor.moveToFirst();
                             db.close();
 
-                            db=ob.getReadableDatabase();
-                            Cursor cursor1 = db.rawQuery("SELECT * FROM LocationData", null);
-                            List<String> fileName = new ArrayList<>();
-                            if (cursor1.moveToFirst()){
-                                fileName.add(String.valueOf(cursor1.getColumnIndex("latitude")));
-                                while(cursor1.moveToNext()){
-                                    fileName.add(String.valueOf(cursor1.getColumnIndex("longitude")));
-                                }
-                            }
-                            for (int i=0;i<=fileName.size();i++)
-                            {
-                                System.out.println(i);
-                            }
-                            cursor.close();
-                            db.close();
-
-
-
-
-
-
                             Toast.makeText(getApplicationContext(), String.valueOf(cursor.getString(2)), Toast.LENGTH_LONG).show();
-
-                            db = ob.getWritableDatabase();
-                            db.execSQL("DELETE FROM LocationData");
-                            db.close();
 
 
                         } catch (Exception e) {

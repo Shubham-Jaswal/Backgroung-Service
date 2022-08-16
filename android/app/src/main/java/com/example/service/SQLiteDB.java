@@ -26,7 +26,7 @@ public class SQLiteDB extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE LocationData " +
-                "( latitude VARCHAR(500) NOT NULL , longitude VARCHAR(500) NOT NULL , battery VARCHAR(500) NOT NULL )");
+                "( latitude VARCHAR(500) NOT NULL , longitude VARCHAR(500) NOT NULL , battery VARCHAR(500) NOT NULL , airplane VARCHAR(500) NOT NULL )");
 
 
 
