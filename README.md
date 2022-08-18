@@ -32,15 +32,7 @@ if internet is on
 {
 send data online to database
 and check if the the offline database is empty or not
-if 
-{
-offline SQLite database is empty
-{
-Nothing
-}
-else
-{
-Take the data and send it online
+if the offline SQLite database is empty then do Nothing else Take the data and send it online
 }
 ###########################################
 
